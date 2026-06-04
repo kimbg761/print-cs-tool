@@ -307,7 +307,7 @@ body { font-family:'Pretendard',-apple-system,sans-serif; background:var(--bg); 
   <header class="topbar">
     <div class="logo" onclick="goPage('main')"><div class="logo-dot"></div>인쇄 응대 지원</div>
     <div class="divider"></div>
-    <span class="sub">CS 운영자용</span>
+    <span class="sub">CS 운영자용 · Gemini 무료</span>
     <div class="topbar-right">
       <button class="nav-btn active-nav" onclick="goPage('main')">💬 응대</button>
       <button class="nav-btn" onclick="goPage('mapping')">🗂 용어 맵핑 관리</button>
@@ -442,9 +442,9 @@ function toggleKeyVis() {
 
 function submitKey() {
   const val = document.getElementById('keyInput').value.trim();
-  if (!val.startsWith('sk-ant-')) {
+  if (!val.startsWith('AIza')) {
     document.getElementById('keyInput').style.borderColor = 'var(--accent)';
-    document.getElementById('keyInput').placeholder = 'sk-ant- 로 시작하는 키를 입력하세요';
+    document.getElementById('keyInput').placeholder = 'AIza 로 시작하는 키를 입력하세요';
     return;
   }
   apiKey = val;
@@ -657,19 +657,20 @@ async function generate() {
 답변 후보 2개를 생성해주세요. 각 후보는 서로 다른 고객 상황을 기준으로 분기하세요.`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body: JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:2000,
-        system,
-        messages:[{role:'user',content:user}]
-      })
-    });
+    const res = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+      {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          contents:[{role:'user', parts:[{text: system + '\n\n' + user}]}],
+          generationConfig:{ maxOutputTokens:2000, temperature:0.7 }
+        })
+      }
+    );
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);
-    const raw = data.content.map(i => i.text||'').join('');
+    const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text) || '';
     const parsed = safeParseJSON(raw);
     if (!parsed) throw new Error('파싱 실패');
     renderResults(parsed);
@@ -831,11 +832,11 @@ function showToast(msg){
     <div class="key-field">
       <label>Anthropic API Key</label>
       <div class="key-input-wrap">
-        <input class="key-input" type="password" id="keyInput" placeholder="sk-ant-api03-..." spellcheck="false" />
+        <input class="key-input" type="password" id="keyInput" placeholder="AIza..." spellcheck="false" />
         <button class="key-toggle" onclick="toggleKeyVis()">보기</button>
       </div>
       <span class="key-hint">
-        API 키는 <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>에서 발급받을 수 있습니다.
+        API 키는 <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a>에서 무료로 발급받을 수 있습니다.
       </span>
     </div>
     <button class="btn-key-submit" onclick="submitKey()">시작하기</button>
