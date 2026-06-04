@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>인쇄 옵션 응대 지원</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #F2F0EC;
+  --surface: #FFFFFF;
+  --s2: #F8F7F4;
+  --border: #E3DFD8;
+  --border2: #CEC9BF;
+  --text: #1C1A17;
+  --muted: #8C8680;
+  --accent: #D95F35;
+  --accent-lt: #FBF0EB;
+  --blue: #3569D4;
+  --blue-lt: #EBF0FB;
+  --green: #2A855A;
+  --r: 10px; --rs: 7px;
+  --sh: 0 1px 3px rgba(0,0,0,.07), 0 4px 14px rgba(0,0,0,.04);
+  --sh2: 0 6px 24px rgba(0,0,0,.1);
+}
+body { font-family:'Pretendard',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; line-height:1.6; }
+
+/* ── Pages ── */
+.page { display:none; height:100vh; flex-direction:column; overflow:hidden; }
+.page.active { display:flex; }
+
+/* ── Topbar ── */
+.topbar {
+  background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; padding:0 20px; gap:12px; height:52px; flex-shrink:0;
+}
+.logo { font-size:14px; font-weight:700; letter-spacing:-.3px; display:flex; align-items:center; gap:7px; cursor:pointer; }
+.logo-dot { width:18px; height:18px; background:var(--accent); border-radius:5px; }
+.divider { width:1px; height:18px; background:var(--border); }
+.sub { font-size:12px; color:var(--muted); }
+.topbar-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
+.nav-btn {
+  padding:6px 13px; border-radius:6px; border:1px solid var(--border);
+  background:transparent; font-size:12px; font-weight:600; font-family:inherit;
+  color:var(--muted); cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:5px;
+}
+.nav-btn:hover { background:var(--s2); color:var(--text); border-color:var(--border2); }
+.nav-btn.active-nav { background:var(--text); color:#fff; border-color:var(--text); }
+.pulse { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); margin-left:4px; }
+.pulse-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:blink 2s ease infinite; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
+
+/* ══════════════════════════════════════
+   MAIN PAGE
+══════════════════════════════════════ */
+.main-body { display:grid; grid-template-columns:340px 1fr; flex:1; overflow:hidden; }
+
+/* Left */
+.left { background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+.left-scroll { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:14px; }
+.sec-label { font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+
+.inquiry-box { background:var(--accent-lt); border:1px solid #F0C4B0; border-radius:var(--r); padding:12px; }
+.inquiry-tag { font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--accent); margin-bottom:6px; }
+.inquiry-ta {
+  width:100%; min-height:120px; resize:none; background:transparent; border:none;
+  font-family:inherit; font-size:13.5px; line-height:1.7; color:var(--text); outline:none;
+}
+.inquiry-ta::placeholder { color:#D4B0A4; }
+
+.cta { padding:12px 16px; border-top:1px solid var(--border); background:var(--surface); }
+.btn-gen {
+  width:100%; padding:12px; background:var(--accent); color:#fff; border:none;
+  border-radius:var(--rs); font-size:14px; font-weight:700; font-family:inherit;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;
+  transition:all .15s; letter-spacing:-.2px;
+}
+.btn-gen:hover { background:#C04E28; transform:translateY(-1px); }
+.btn-gen:active { transform:none; }
+.btn-gen:disabled { background:#C8C3BB; cursor:not-allowed; transform:none; }
+
+/* Right */
+.right { overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:14px; }
+
+.empty { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; gap:10px; text-align:center; padding:60px 20px; }
+.empty-icon { font-size:36px; margin-bottom:4px; }
+.empty-title { font-size:15px; font-weight:600; }
+.empty-sub { font-size:13px; color:var(--muted); line-height:1.65; max-width:260px; }
+
+.loading { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:80px 20px; }
+.spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.loading-msg { font-size:13px; color:var(--muted); }
+
+/* Vote bar (spans full width above first card) */
+.vote-bar-wrap { border-radius:var(--r) var(--r) 0 0; height:6px; display:flex; overflow:hidden; background:var(--border); }
+.bar-a { background:var(--accent); transition:width .5s cubic-bezier(.4,0,.2,1); }
+.bar-b { background:var(--blue); transition:width .5s cubic-bezier(.4,0,.2,1); }
+.vote-legend { display:flex; align-items:center; gap:14px; padding:6px 0 2px; }
+.vleg { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:var(--muted); }
+.vleg-dot { width:8px; height:8px; border-radius:50%; }
+.vleg-dot-a { background:var(--accent); }
+.vleg-dot-b { background:var(--blue); }
+
+/* Candidate cards */
+.cand {
+  background:var(--surface); border:1.5px solid var(--border); border-radius:var(--r);
+  box-shadow:var(--sh); overflow:hidden; transition:box-shadow .2s, border-color .2s;
+  animation:fadeIn .25s ease both;
+}
+.cand:nth-child(2) { animation-delay:.08s; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+.cand.selected { border-color:var(--blue); box-shadow:0 0 0 3px rgba(53,105,212,.12),var(--sh); }
+
+.cand-header {
+  padding:11px 14px; display:flex; align-items:center; gap:9px;
+  border-bottom:1px solid var(--border); background:var(--s2);
+}
+.badge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }
+.badge-a { background:var(--accent-lt); color:var(--accent); }
+.badge-b { background:var(--blue-lt); color:var(--blue); }
+.cand-scenario { font-size:12.5px; font-weight:600; flex:1; }
+.vote-chip {
+  display:flex; align-items:center; gap:4px; padding:4px 10px;
+  border-radius:20px; font-size:12px; font-weight:700; white-space:nowrap;
+}
+.vc-a { background:var(--accent-lt); color:var(--accent); }
+.vc-b { background:var(--blue-lt); color:var(--blue); }
+
+.cand-body { padding:14px; }
+.answer-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:6px; }
+.answer-ta {
+  width:100%; min-height:100px; resize:vertical; border:1px solid var(--border);
+  border-radius:var(--rs); padding:11px 12px; font-family:inherit; font-size:13.5px;
+  line-height:1.75; color:var(--text); background:var(--s2); outline:none; transition:border-color .15s;
+}
+.answer-ta:focus { border-color:var(--blue); background:#fff; }
+
+.cand-footer {
+  padding:10px 14px; border-top:1px solid var(--border);
+  display:flex; align-items:center; gap:7px;
+}
+
+.btn-sel {
+  padding:6px 15px; border-radius:6px; border:none;
+  font-size:12px; font-weight:700; font-family:inherit; cursor:pointer; transition:all .13s;
+}
+.btn-sel-a { background:var(--accent); color:#fff; }
+.btn-sel-a:hover { background:#C04E28; }
+.btn-sel-b { background:var(--blue); color:#fff; }
+.btn-sel-b:hover { background:#2454B8; }
+.cand.selected .btn-sel::after { content:' ✓'; }
+.fhint { margin-left:auto; font-size:11px; color:var(--muted); }
+
+/* ══════════════════════════════════════
+   MAPPING PAGE
+══════════════════════════════════════ */
+.map-body { flex:1; overflow:hidden; display:flex; flex-direction:column; }
+.map-toolbar {
+  padding:12px 20px; background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:10px; flex-shrink:0;
+}
+.map-toolbar input {
+  flex:1; padding:7px 11px; border-radius:var(--rs); border:1px solid var(--border);
+  background:var(--s2); font-family:inherit; font-size:13px; outline:none;
+  transition:border-color .15s;
+}
+.map-toolbar input:focus { border-color:var(--blue); background:#fff; }
+.tab-btns { display:flex; gap:4px; flex-shrink:0; }
+.tab-btn {
+  padding:6px 12px; border-radius:6px; border:1px solid var(--border);
+  background:transparent; font-size:11px; font-weight:600; font-family:inherit;
+  color:var(--muted); cursor:pointer; transition:all .13s;
+}
+.tab-btn:hover { background:var(--s2); color:var(--text); }
+.tab-btn.active { background:var(--text); color:#fff; border-color:var(--text); }
+.btn-add-map {
+  padding:7px 13px; border-radius:var(--rs); border:none; background:var(--accent); color:#fff;
+  font-size:12px; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap;
+  display:flex; align-items:center; gap:5px; transition:background .13s;
+}
+.btn-add-map:hover { background:#C04E28; }
+
+.map-scroll { flex:1; overflow-y:auto; padding:16px 20px; }
+.map-table { width:100%; border-collapse:collapse; }
+.map-table th {
+  text-align:left; font-size:10px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.07em; color:var(--muted); padding:8px 12px;
+  border-bottom:2px solid var(--border); background:var(--s2); position:sticky; top:0;
+}
+.map-table td { padding:10px 12px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:middle; }
+.map-table tr:hover td { background:var(--s2); }
+.group-pill {
+  display:inline-block; font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px;
+}
+.gp-material { background:#FEF3E2; color:#B07018; }
+.gp-size     { background:#EBF0FB; color:#3158C0; }
+.gp-print    { background:#E8F5EE; color:#276A48; }
+.gp-finish   { background:#F3E8FF; color:#6438A0; }
+.gp-custom   { background:#FFF3E0; color:#C05010; }
+.note-cell { font-size:12px; color:var(--muted); }
+.btn-row-del {
+  padding:4px 9px; border-radius:5px; border:1px solid var(--border);
+  background:transparent; font-size:11px; color:var(--muted); cursor:pointer; transition:all .13s;
+}
+.btn-row-del:hover { background:#FBF0EB; color:var(--accent); border-color:#F0C4B0; }
+
+/* Modal */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:50;
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; pointer-events:none; transition:opacity .2s;
+}
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal {
+  background:var(--surface); border-radius:var(--r); padding:22px 24px;
+  width:420px; max-width:90vw; box-shadow:var(--sh2);
+  transform:translateY(8px); transition:transform .2s;
+}
+.modal-overlay.open .modal { transform:none; }
+.modal-title { font-size:15px; font-weight:700; margin-bottom:16px; }
+.modal-fields { display:flex; flex-direction:column; gap:10px; }
+.mf label { font-size:11px; font-weight:600; color:var(--muted); display:block; margin-bottom:4px; }
+.mf input, .mf select, .mf textarea {
+  width:100%; padding:8px 10px; border-radius:var(--rs); border:1px solid var(--border);
+  background:var(--s2); font-family:inherit; font-size:13px; color:var(--text); outline:none;
+  transition:border-color .15s;
+}
+.mf input:focus, .mf select:focus, .mf textarea:focus { border-color:var(--blue); background:#fff; }
+.mf textarea { resize:none; min-height:52px; line-height:1.5; }
+.modal-footer { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+.btn-modal-cancel {
+  padding:8px 16px; border-radius:6px; border:1px solid var(--border2);
+  background:transparent; font-size:13px; font-weight:600; font-family:inherit;
+  color:var(--muted); cursor:pointer;
+}
+.btn-modal-save {
+  padding:8px 18px; border-radius:6px; border:none; background:var(--accent); color:#fff;
+  font-size:13px; font-weight:700; font-family:inherit; cursor:pointer;
+}
+.btn-modal-save:hover { background:#C04E28; }
+
+/* Toast */
+.toast {
+  position:fixed; bottom:20px; right:20px; background:var(--text); color:#fff;
+  padding:9px 15px; border-radius:7px; font-size:13px; font-weight:500;
+  opacity:0; transform:translateY(6px); transition:all .2s; pointer-events:none; z-index:99;
+}
+.toast.show { opacity:1; transform:none; }
+
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+/* ── API Key Screen ── */
+.key-screen {
+  position:fixed; inset:0; background:var(--bg); z-index:200;
+  display:flex; align-items:center; justify-content:center;
+}
+.key-screen.hidden { display:none; }
+.key-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  padding:32px 28px; width:400px; max-width:90vw; box-shadow:var(--sh2);
+  display:flex; flex-direction:column; gap:20px;
+}
+.key-logo { display:flex; align-items:center; gap:8px; }
+.key-logo-dot { width:22px; height:22px; background:var(--accent); border-radius:6px; }
+.key-logo-text { font-size:15px; font-weight:700; letter-spacing:-.3px; }
+.key-title { font-size:20px; font-weight:700; letter-spacing:-.4px; line-height:1.3; }
+.key-sub { font-size:13px; color:var(--muted); line-height:1.65; margin-top:-12px; }
+.key-field { display:flex; flex-direction:column; gap:6px; }
+.key-field label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
+.key-input-wrap { display:flex; gap:8px; align-items:center; }
+.key-input {
+  flex:1; padding:10px 12px; border-radius:var(--rs); border:1.5px solid var(--border);
+  background:var(--s2); font-family:inherit; font-size:13px; color:var(--text); outline:none;
+  transition:border-color .15s; letter-spacing:.04em;
+}
+.key-input:focus { border-color:var(--blue); background:#fff; }
+.key-toggle {
+  padding:0 10px; height:38px; border-radius:var(--rs); border:1px solid var(--border);
+  background:transparent; font-size:12px; color:var(--muted); cursor:pointer; white-space:nowrap;
+  font-family:inherit; transition:background .13s;
+}
+.key-toggle:hover { background:var(--s2); }
+.key-hint { font-size:11.5px; color:var(--muted); line-height:1.6; }
+.key-hint a { color:var(--blue); text-decoration:none; }
+.key-hint a:hover { text-decoration:underline; }
+.btn-key-submit {
+  padding:12px; border-radius:var(--rs); border:none; background:var(--accent); color:#fff;
+  font-size:14px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s;
+}
+.btn-key-submit:hover { background:#C04E28; }
+.key-footer { font-size:11px; color:var(--muted); text-align:center; line-height:1.6; padding-top:4px; border-top:1px solid var(--border); }
+.key-change-btn {
+  padding:5px 11px; border-radius:6px; border:1px solid var(--border2);
+  background:transparent; font-size:11px; font-weight:600; font-family:inherit;
+  color:var(--muted); cursor:pointer; transition:all .13s; margin-left:auto;
+}
+.key-change-btn:hover { background:var(--s2); color:var(--text); }
+</style>
+</head>
+<body>
+
+<!-- ══ MAIN PAGE ══ -->
+<div class="page active" id="pageMain">
+  <header class="topbar">
+    <div class="logo" onclick="goPage('main')"><div class="logo-dot"></div>인쇄 응대 지원</div>
+    <div class="divider"></div>
+    <span class="sub">CS 운영자용</span>
+    <div class="topbar-right">
+      <button class="nav-btn active-nav" onclick="goPage('main')">💬 응대</button>
+      <button class="nav-btn" onclick="goPage('mapping')">🗂 용어 맵핑 관리</button>
+      <div class="pulse"><div class="pulse-dot"></div>AI 준비됨</div>
+    </div>
+  </header>
+
+  <div class="main-body">
+    <!-- Left: inquiry input -->
+    <aside class="left">
+      <div class="left-scroll">
+        <div>
+          <div class="sec-label">고객 문의 내용</div>
+          <div class="inquiry-box">
+            <div class="inquiry-tag">Customer Inquiry</div>
+            <textarea class="inquiry-ta" id="inquiryText" rows="6"
+              placeholder="고객 문의 내용을 붙여넣거나 입력하세요.&#10;&#10;예: 추석 선물 포장에 붙이는 스티커인데&#10;어떤 용지가 좋을까요? 물에 젖을 수도 있어요."></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="cta">
+        <button class="btn-gen" id="genBtn" onclick="generate()">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1L10 6H15L11 9.5L12.5 14.5L8 11.5L3.5 14.5L5 9.5L1 6H6L8 1Z" fill="currentColor"/></svg>
+          답변 후보 생성
+        </button>
+      </div>
+    </aside>
+
+    <!-- Right: results -->
+    <main class="right" id="rightPanel">
+      <div class="empty">
+        <div class="empty-icon">💬</div>
+        <div class="empty-title">답변 후보 생성 준비</div>
+        <div class="empty-sub">고객 문의를 입력하고<br>답변 후보 생성을 눌러주세요.</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ══ MAPPING PAGE ══ -->
+<div class="page" id="pageMapping">
+  <header class="topbar">
+    <div class="logo" onclick="goPage('main')"><div class="logo-dot"></div>인쇄 응대 지원</div>
+    <div class="divider"></div>
+    <span class="sub">용어 맵핑 관리</span>
+    <div class="topbar-right">
+      <button class="nav-btn" onclick="goPage('main')">💬 응대</button>
+      <button class="nav-btn active-nav" onclick="goPage('mapping')">🗂 용어 맵핑 관리</button>
+    </div>
+  </header>
+
+  <div class="map-body">
+    <div class="map-toolbar">
+      <input type="text" id="mapSearch" placeholder="고객 표현, 운영자 용어, 비고 검색..." oninput="renderTable()">
+      <div class="tab-btns" id="tabBtns">
+        <button class="tab-btn active" data-group="all" onclick="setTab('all')">전체</button>
+        <button class="tab-btn" data-group="material" onclick="setTab('material')">용지/재질</button>
+        <button class="tab-btn" data-group="size" onclick="setTab('size')">사이즈</button>
+        <button class="tab-btn" data-group="print" onclick="setTab('print')">인쇄방식</button>
+        <button class="tab-btn" data-group="finish" onclick="setTab('finish')">후가공</button>
+        <button class="tab-btn" data-group="custom" onclick="setTab('custom')">커스텀</button>
+      </div>
+      <button class="btn-add-map" onclick="openModal()">+ 항목 추가</button>
+    </div>
+    <div class="map-scroll">
+      <table class="map-table">
+        <thead>
+          <tr>
+            <th style="width:120px">그룹</th>
+            <th>고객 표현</th>
+            <th>운영자 용어</th>
+            <th>비고</th>
+            <th style="width:60px"></th>
+          </tr>
+        </thead>
+        <tbody id="mapTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title">맵핑 항목 추가</div>
+    <div class="modal-fields">
+      <div class="mf">
+        <label>그룹</label>
+        <select id="mfGroup">
+          <option value="material">용지/재질</option>
+          <option value="size">사이즈</option>
+          <option value="print">인쇄방식</option>
+          <option value="finish">후가공</option>
+          <option value="custom">커스텀</option>
+        </select>
+      </div>
+      <div class="mf">
+        <label>고객 표현 (쉼표로 여러 개 입력 가능)</label>
+        <input type="text" id="mfCustomer" placeholder="예: 물에 강한 스티커, 방수 스티커">
+      </div>
+      <div class="mf">
+        <label>운영자 용어</label>
+        <input type="text" id="mfOperator" placeholder="예: 유포지">
+      </div>
+      <div class="mf">
+        <label>비고</label>
+        <textarea id="mfNote" placeholder="예: 냉장·습기 환경에 적합"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeModal()">취소</button>
+      <button class="btn-modal-save" onclick="saveMapping()">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+
+// ══════════════════════════════════════
+// API KEY MANAGEMENT
+// ══════════════════════════════════════
+let apiKey = '';
+
+function toggleKeyVis() {
+  const inp = document.getElementById('keyInput');
+  const btn = event.target;
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '숨기기'; }
+  else { inp.type = 'password'; btn.textContent = '보기'; }
+}
+
+function submitKey() {
+  const val = document.getElementById('keyInput').value.trim();
+  if (!val.startsWith('sk-ant-')) {
+    document.getElementById('keyInput').style.borderColor = 'var(--accent)';
+    document.getElementById('keyInput').placeholder = 'sk-ant- 로 시작하는 키를 입력하세요';
+    return;
+  }
+  apiKey = val;
+  document.getElementById('keyScreen').classList.add('hidden');
+  // Add change key button to topbar
+  const tr = document.querySelector('#pageMain .topbar-right');
+  const cb = document.createElement('button');
+  cb.className = 'key-change-btn';
+  cb.textContent = '🔑 키 변경';
+  cb.onclick = function() {
+    document.getElementById('keyInput').value = '';
+    document.getElementById('keyInput').type = 'password';
+    document.getElementById('keyScreen').classList.remove('hidden');
+  };
+  tr.appendChild(cb);
+}
+
+// Allow Enter key on input
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('keyInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') submitKey();
+  });
+});
+
+// ══════════════════════════════════════
+// MAPPING DATA
+// ══════════════════════════════════════
+let mappingData = [
+  // material
+  {id:1,group:'material',customer:'잘 붙는 스티커',operator:'강접 아트지',note:'일반 선물 포장 부착에 적합'},
+  {id:2,group:'material',customer:'포장에 붙이는 스티커',operator:'강접 아트지',note:'일반 선물 포장 부착에 적합'},
+  {id:3,group:'material',customer:'물에 강한 스티커',operator:'유포지',note:'냉장·습기 환경에 적합'},
+  {id:4,group:'material',customer:'냉장 제품용 스티커',operator:'유포지',note:'냉장·습기 환경에 적합'},
+  {id:5,group:'material',customer:'방수 스티커',operator:'유포지',note:'냉장·습기 환경에 적합'},
+  {id:6,group:'material',customer:'아이보리색 종이',operator:'아이보리지',note:'고급 명함·카드류'},
+  {id:7,group:'material',customer:'크림색 종이',operator:'아이보리지',note:'고급 명함·카드류'},
+  {id:8,group:'material',customer:'두꺼운 명함 종이',operator:'에그쉘',note:'프리미엄 명함'},
+  {id:9,group:'material',customer:'오돌토돌한 종이',operator:'띤또레또',note:'독특한 텍스처 명함'},
+  {id:10,group:'material',customer:'고급 종이',operator:'수입지',note:'특수 질감 제품'},
+  {id:11,group:'material',customer:'일반 스티커 종이',operator:'아트지',note:'가장 범용적인 스티커 용지'},
+  // size
+  {id:20,group:'size',customer:'기본 사이즈',operator:'규격',note:'홈페이지 선택 사이즈'},
+  {id:21,group:'size',customer:'원하는 사이즈',operator:'비규격/별사이즈',note:'독판 견적 필요'},
+  {id:22,group:'size',customer:'실제 받는 사이즈',operator:'재단 사이즈',note:'파일 작업 사이즈와 다름'},
+  {id:23,group:'size',customer:'파일 사이즈',operator:'작업 사이즈',note:'재단 여분 포함 크기'},
+  {id:24,group:'size',customer:'너무 작은가요',operator:'최소 사이즈 문의',note:'품목별 최소 사이즈 확인 필요'},
+  // print
+  {id:30,group:'print',customer:'한쪽만 인쇄',operator:'단면',note:'기본 옵션'},
+  {id:31,group:'print',customer:'앞뒤 인쇄',operator:'양면',note:'양면 8도 = 앞뒤 컬러'},
+  {id:32,group:'print',customer:'컬러 인쇄',operator:'4도 인쇄',note:'CMYK 기반'},
+  {id:33,group:'print',customer:'진한 검정 배경',operator:'K100',note:'블랙 배경 진하게 표현'},
+  {id:34,group:'print',customer:'따로 제작',operator:'독판',note:'색상 정확도 향상, 비용 증가'},
+  {id:35,group:'print',customer:'색이 다르게 나올까요',operator:'색상 오차',note:'모니터와 인쇄물 차이 안내'},
+  // finish
+  {id:40,group:'finish',customer:'표면 처리',operator:'코팅',note:'유광/무광 선택 가능'},
+  {id:41,group:'finish',customer:'안 반짝이는 코팅',operator:'무광 코팅',note:'지문 덜 묻음, 고급스러운 느낌'},
+  {id:42,group:'finish',customer:'금색 글씨',operator:'금박',note:'후가공 추가비 발생'},
+  {id:43,group:'finish',customer:'절취선',operator:'미싱',note:'쿠폰·티켓에 활용'},
+  {id:44,group:'finish',customer:'접는 선',operator:'오시',note:'접지 전 오시 작업 선행'},
+  {id:45,group:'finish',customer:'모양대로 자르기',operator:'도무송',note:'칼선 파일 별도 필요'},
+  {id:46,group:'finish',customer:'흰 테두리 있는 방식',operator:'원터치',note:'스티커 주변 여백 있음'},
+  {id:47,group:'finish',customer:'스티커 모양만 남게',operator:'완칼',note:'배경지 없이 스티커만'},
+  {id:48,group:'finish',customer:'책처럼 묶기',operator:'제본',note:'무선/중철/링 종류 확인 필요'},
+  // custom
+  {id:50,group:'custom',customer:'옵션이 안 보여요',operator:'옵션 미노출',note:'담당자 확인 또는 메모 기재'},
+  {id:51,group:'custom',customer:'요청사항에 적으면 되나요',operator:'메모 기재',note:'주문 시 메모란 활용'},
+  {id:52,group:'custom',customer:'별도 제작 필요',operator:'독판 견적',note:'견적 요청 양식 안내'},
+];
+let nextId = 100;
+let activeTab = 'all';
+
+const GROUP_LABEL = {material:'용지/재질',size:'사이즈',print:'인쇄방식',finish:'후가공',custom:'커스텀'};
+const GROUP_CLASS = {material:'gp-material',size:'gp-size',print:'gp-print',finish:'gp-finish',custom:'gp-custom'};
+
+// ══════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════
+function goPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.getElementById(p === 'main' ? 'pageMain' : 'pageMapping').classList.add('active');
+  if (p === 'mapping') renderTable();
+}
+
+// ══════════════════════════════════════
+// MAPPING TABLE
+// ══════════════════════════════════════
+function setTab(g) {
+  activeTab = g;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.group === g));
+  renderTable();
+}
+
+function renderTable() {
+  const q = (document.getElementById('mapSearch').value || '').toLowerCase();
+  let rows = mappingData.filter(r => {
+    if (activeTab !== 'all' && r.group !== activeTab) return false;
+    if (!q) return true;
+    return r.customer.toLowerCase().includes(q) || r.operator.toLowerCase().includes(q) || (r.note||'').toLowerCase().includes(q);
+  });
+  const tbody = document.getElementById('mapTableBody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted);font-size:13px">검색 결과가 없습니다.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td><span class="group-pill ${GROUP_CLASS[r.group]}">${GROUP_LABEL[r.group]}</span></td>
+      <td>${esc(r.customer)}</td>
+      <td style="font-weight:600">${esc(r.operator)}</td>
+      <td class="note-cell">${esc(r.note||'')}</td>
+      <td><button class="btn-row-del" onclick="deleteRow(${r.id})">삭제</button></td>
+    </tr>`).join('');
+}
+
+function deleteRow(id) {
+  mappingData = mappingData.filter(r => r.id !== id);
+  renderTable();
+  showToast('항목이 삭제되었습니다.');
+}
+
+function openModal() {
+  document.getElementById('mfCustomer').value = '';
+  document.getElementById('mfOperator').value = '';
+  document.getElementById('mfNote').value = '';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+function saveMapping() {
+  const customer = document.getElementById('mfCustomer').value.trim();
+  const operator = document.getElementById('mfOperator').value.trim();
+  const group    = document.getElementById('mfGroup').value;
+  const note     = document.getElementById('mfNote').value.trim();
+  if (!customer || !operator) { showToast('고객 표현과 운영자 용어를 입력해주세요.'); return; }
+  // Support comma-separated customer expressions
+  customer.split(',').map(s => s.trim()).filter(Boolean).forEach(c => {
+    mappingData.push({ id: nextId++, group, customer: c, operator, note });
+  });
+  closeModal();
+  renderTable();
+  showToast('항목이 추가되었습니다.');
+}
+// Close modal on overlay click
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ══════════════════════════════════════
+// AUTO MAP
+// ══════════════════════════════════════
+function buildMappingCtx(text) {
+  const t = text.toLowerCase();
+  const found = [];
+  const seen = new Set();
+  for (const row of mappingData) {
+    if (t.includes(row.customer.toLowerCase()) && !seen.has(row.operator)) {
+      seen.add(row.operator);
+      found.push(`${row.customer} → ${row.operator}`);
+    }
+  }
+  return found.join(', ') || '(자동 매칭 없음)';
+}
+
+// ══════════════════════════════════════
+// VOTE STATE
+// ══════════════════════════════════════
+const votes = { a: 0, b: 0 };
+
+function recordVote(which) {
+  votes[which]++;
+  const total = votes.a + votes.b;
+  const pA = Math.round(votes.a / total * 100);
+  const pB = 100 - pA;
+  document.querySelectorAll('.bar-a').forEach(el => el.style.width = pA + '%');
+  document.querySelectorAll('.bar-b').forEach(el => el.style.width = pB + '%');
+  document.querySelectorAll('.pct-a').forEach(el => el.textContent = pA + '%');
+  document.querySelectorAll('.pct-b').forEach(el => el.textContent = pB + '%');
+}
+
+// ══════════════════════════════════════
+// GENERATE
+// ══════════════════════════════════════
+async function generate() {
+  const inquiry = document.getElementById('inquiryText').value.trim();
+  if (!inquiry) { showToast('고객 문의 내용을 입력해주세요.'); return; }
+
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> 생성 중...`;
+  document.getElementById('rightPanel').innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-msg">고객 문의를 분석하고 답변 후보를 생성 중입니다...</div></div>`;
+
+  const mappingCtx = buildMappingCtx(inquiry);
+
+  const system = `당신은 인쇄 전문 CS 운영자를 돕는 응대 지원 AI입니다.
+고객 문의를 분석해 고객에게 바로 전달할 수 있는 답변 후보 2개를 생성합니다.
+
+규칙:
+- answer: 고객에게 전달하는 완성된 답변. 추천 이유와 주의사항을 자연스럽게 녹여 3~5문장으로 작성.
+- scenario: 두 후보를 구분하는 짧은 제목 (예: '일반 포장 기준' / '냉장·방수 고려').
+- 큰따옴표(")를 값 안에 절대 사용하지 마세요. 작은따옴표(')로 대체.
+- JSON만 반환. 코드블록·설명 없음.
+
+형식 (정확히 지켜주세요):
+{"extracted":[{"term":"고객표현","mapped":"운영자용어","group":"material"}],"candidates":[{"scenario":"제목","answer":"답변"},{"scenario":"제목2","answer":"답변2"}]}`;
+
+  const user = `고객 문의: ${inquiry}
+용어 자동 매칭: ${mappingCtx}
+
+답변 후보 2개를 생성해주세요. 각 후보는 서로 다른 고객 상황을 기준으로 분기하세요.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:2000,
+        system,
+        messages:[{role:'user',content:user}]
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const raw = data.content.map(i => i.text||'').join('');
+    const parsed = safeParseJSON(raw);
+    if (!parsed) throw new Error('파싱 실패');
+    renderResults(parsed);
+    injectExtractedMappings(parsed.extracted || []);
+  } catch(e) {
+    console.error(e);
+    showToast('오류가 발생했습니다. 다시 시도해주세요.');
+    document.getElementById('rightPanel').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">생성 실패</div><div class="empty-sub">다시 시도해주세요.</div></div>`;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1L10 6H15L11 9.5L12.5 14.5L8 11.5L3.5 14.5L5 9.5L1 6H6L8 1Z" fill="currentColor"/></svg> 답변 후보 재생성`;
+}
+
+// ══════════════════════════════════════
+// RENDER RESULTS
+// ══════════════════════════════════════
+function renderResults(parsed) {
+  const total = votes.a + votes.b;
+  const pA = total ? Math.round(votes.a/total*100) : 50;
+  const pB = 100 - pA;
+
+  const cands = (parsed.candidates || []).map((c, i) => {
+    const isA = i === 0;
+    return `
+    <div class="cand" id="cand-${i}">
+      <div class="cand-header">
+        <span class="badge ${isA?'badge-a':'badge-b'}">${isA?'후보 A':'후보 B'}</span>
+        <span class="cand-scenario">${esc(c.scenario)}</span>
+        <div class="vote-chip ${isA?'vc-a':'vc-b'}">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l1.8 4.6H15l-4.2 3 1.6 4.9L8 10.8 3.6 13.5l1.6-4.9L1 5.6h5.2L8 1z"/></svg>
+          <span class="${isA?'pct-a':'pct-b'}">${isA?pA:pB}%</span>
+        </div>
+      </div>
+      <div class="cand-body">
+        <div class="answer-label">📝 고객 전달 답변</div>
+        <textarea class="answer-ta" id="ans-${i}">${esc(c.answer)}</textarea>
+      </div>
+      <div class="cand-footer">
+        <button class="btn-sel ${isA?'btn-sel-a':'btn-sel-b'} btn-use" data-idx="${i}">이 답변 사용 &amp; 복사</button>
+        <span class="fhint">클릭 시 클립보드에 복사됩니다</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('rightPanel').innerHTML = `
+    <div class="vote-bar-wrap">
+      <div class="bar-a" style="width:${pA}%"></div>
+      <div class="bar-b" style="width:${pB}%"></div>
+    </div>
+    <div class="vote-legend">
+      <span class="vleg"><span class="vleg-dot vleg-dot-a"></span>후보 A <span class="pct-a">${pA}%</span></span>
+      <span class="vleg"><span class="vleg-dot vleg-dot-b"></span>후보 B <span class="pct-b">${pB}%</span></span>
+    </div>
+    <div class="candidates" style="display:flex;flex-direction:column;gap:16px;">${cands}</div>`;
+}
+
+function useAnswer(idx) {
+  // 1. mark selected
+  document.querySelectorAll('.cand').forEach((el,i) => el.classList.toggle('selected', i===idx));
+  // 2. record vote
+  recordVote(idx===0?'a':'b');
+  // 3. copy to clipboard
+  const ta = document.getElementById('ans-'+idx);
+  if (!ta) { showToast('답변을 찾을 수 없습니다.'); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(ta.value)
+      .then(() => showToast('✅ 답변이 복사되었습니다. 상담툴에 붙여넣으세요.'))
+      .catch(() => fallbackCopy(ta));
+  } else {
+    fallbackCopy(ta);
+  }
+}
+function fallbackCopy(ta) {
+  ta.select();
+  ta.setSelectionRange(0, 99999);
+  try {
+    document.execCommand('copy');
+    showToast('✅ 답변이 복사되었습니다. 상담툴에 붙여넣으세요.');
+  } catch(e) {
+    showToast('복사에 실패했습니다. 직접 선택 후 복사해주세요.');
+  }
+  window.getSelection && window.getSelection().removeAllRanges();
+}
+
+// Event delegation — handles dynamically rendered buttons
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.btn-use');
+  if (!btn) return;
+  const idx = parseInt(btn.dataset.idx, 10);
+  if (!isNaN(idx)) useAnswer(idx);
+});
+
+
+// ══════════════════════════════════════
+// AUTO-INJECT MAPPINGS FROM SESSION
+// ══════════════════════════════════════
+function injectExtractedMappings(extracted) {
+  if (!extracted || !extracted.length) return;
+  let added = 0;
+  extracted.forEach(function(e) {
+    if (!e.term || !e.mapped) return;
+    // skip if exact customer+operator pair already exists
+    const exists = mappingData.some(function(r) {
+      return r.customer.trim().toLowerCase() === e.term.trim().toLowerCase()
+          && r.operator.trim().toLowerCase() === e.mapped.trim().toLowerCase();
+    });
+    if (!exists) {
+      const validGroups = ['material','size','print','finish','custom'];
+      const group = validGroups.includes(e.group) ? e.group : 'custom';
+      mappingData.push({ id: nextId++, group: group, customer: e.term, operator: e.mapped, note: '자동 추가 (응대 시행)' });
+      added++;
+    }
+  });
+  if (added > 0) showToast('용어 맵핑 ' + added + '건이 자동 추가되었습니다.');
+}
+
+// ══════════════════════════════════════
+// SAFE PARSE
+// ══════════════════════════════════════
+function safeParseJSON(raw) {
+  let t = raw.replace(/^```(?:json)?[\r\n]*/i,'').replace(/[\r\n]*```\s*$/i,'').trim();
+  try { return JSON.parse(t); } catch(_) {}
+  const s = t.indexOf('{'), e = t.lastIndexOf('}');
+  if (s!==-1 && e>s) { try { return JSON.parse(t.slice(s,e+1)); } catch(_) {} }
+  const san = t.replace(/:\s*"((?:[^"\\]|\\.)*)"/gs,(m,inner)=>': "'+inner.replace(/\r?\n/g,' ').replace(/\t/g,' ')+'"');
+  try { return JSON.parse(san); } catch(_) {}
+  try { const r=JSON.parse(repairJSON(t)); if(r?.candidates?.length) return r; } catch(_) {}
+  console.error('Parse failed:',raw); return null;
+}
+function repairJSON(s) {
+  s = s.replace(/,\s*$/,'');
+  if((s.match(/(?<!\\)"/g)||[]).length%2!==0) s+='"';
+  const st=[];
+  for(const c of s){if(c==='{'||c==='[')st.push(c==='{'?'}':']');else if(c==='}'||c===']')st.pop();}
+  while(st.length) s+=st.pop();
+  return s;
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2600);
+}
+</script>
+
+<!-- ══ API KEY SCREEN ══ -->
+<div class="key-screen" id="keyScreen">
+  <div class="key-card">
+    <div class="key-logo">
+      <div class="key-logo-dot"></div>
+      <span class="key-logo-text">인쇄 응대 지원</span>
+    </div>
+    <div>
+      <div class="key-title">API 키를 입력해주세요</div>
+      <p class="key-sub" style="margin-top:6px">Anthropic API 키가 필요합니다. 키는 브라우저에만 저장되며 외부로 전송되지 않습니다.</p>
+    </div>
+    <div class="key-field">
+      <label>Anthropic API Key</label>
+      <div class="key-input-wrap">
+        <input class="key-input" type="password" id="keyInput" placeholder="sk-ant-api03-..." spellcheck="false" />
+        <button class="key-toggle" onclick="toggleKeyVis()">보기</button>
+      </div>
+      <span class="key-hint">
+        API 키는 <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>에서 발급받을 수 있습니다.
+      </span>
+    </div>
+    <button class="btn-key-submit" onclick="submitKey()">시작하기</button>
+    <div class="key-footer">키는 이 브라우저 탭에서만 유지되며,<br>새로고침 시 재입력이 필요합니다.</div>
+  </div>
+</div>
+</body>
+</html>
