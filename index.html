@@ -661,7 +661,7 @@ async function generate() {
 
   try {
     const res = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey,
       {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -833,9 +833,9 @@ function showToast(msg){
       <p class="key-sub" style="margin-top:6px">Anthropic API 키가 필요합니다. 키는 브라우저에만 저장되며 외부로 전송되지 않습니다.</p>
     </div>
     <div class="key-field">
-      <label>Anthropic API Key</label>
+      <label>AAPI Key</label>
       <div class="key-input-wrap">
-        <input class="key-input" type="password" id="keyInput" placeholder="AIza..." spellcheck="false" />
+        <input class="key-input" type="password" id="keyInput" placeholder="..." spellcheck="false" />
         <button class="key-toggle" onclick="toggleKeyVis()">보기</button>
       </div>
       <span class="key-hint">
